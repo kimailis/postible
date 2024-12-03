@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header class="top-bar">
+            <div class="app-name">Postible</div>
+            <div class="user-menu">
+                <button id="userMenuBtn" class="user-menu-button">
+                    <span id="username">{{ username }}</span>
+                    <span class="dropdown-arrow">▼</span>
+                </button>
+                <div id="userMenuDropdown" class="dropdown-menu">
+                    <button class="menu-item" id="settingsBtn">Settings</button>
+                    <button class="menu-item" id="logoutBtn">Logout</button>
+                </div>
+            </div>
+        </header>
+        <div class="main-content">
+            <nav class="side-menu">
+                <button class="menu-button" id="likedPostsBtn">Liked Posts</button>
+                <button class="menu-button" id="myPostsBtn">My Posts</button>
+            </nav>
+            <main class="content-area">
+                <div id="postsContainer" class="posts-container">
+                    <!-- Posts will be dynamically loaded here -->
+                </div>
+                <button id="newPostBtn" class="new-post-button">
+                    <span>+</span> New Post
+                </button>
+            </main>
+        </div>
+    </div>
+
+    <!-- New Post Modal -->
+    <div id="modalOverlay" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Create New Post</h2>
+            </div>
+            <form id="postForm">
+                <div class="modal-content">
+                    <textarea id="postContent" placeholder="What's on your mind?" required></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="modal-button cancel">Cancel</button>
+                    <button type="submit" class="modal-button send">Post</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+    "name": "flask-socketio-app",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+      "start": "python app.py"
+    },
+    "dependencies": {
+      "socket.io-client": "^4.7.2"
+    }
+  }
