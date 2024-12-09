@@ -7,6 +7,17 @@ import hashlib
 import sqlite3
 from pathlib import Path
 
+
+import random
+import string
+from time import sleep
+import requests
+from html import unescape
+
+from threading import Thread
+import time
+
+
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -387,6 +398,251 @@ def toggle_like(post_id):
     finally:
         conn.close()
 
+
+def get_random_post_content():
+    """Fetch random content from various APIs for posts"""
+    # List of APIs to try
+    apis = [
+        
+        # Random quotes
+        {
+            'url': 'https://api.quotable.io/random',
+            'parser': lambda r: f'"{r.json()["content"]}" - {r.json()["author"]}'
+        },
+        # Random facts
+        {
+            'url': 'https://uselessfacts.jsph.pl/random.json?language=en',
+            'parser': lambda r: r.json()['text']
+        },
+         # Tech facts
+        {
+            'url': 'http://numbersapi.com/random/trivia?json=true&type=cs',
+            'parser': lambda r: r.json()['text']
+        },
+        
+        {
+            'url': 'https://www.boredapi.com/api/activity',
+            'parser': lambda r: f"Try this activity: {r.json()['activity']}"
+        },
+        {
+            'url': 'https://api.quotable.io/random',
+            'parser': lambda r: f'"{r.json()["content"]}" - {r.json()["author"]}'
+        },
+        {
+            'url': 'https://v2.jokeapi.dev/joke/Any?type=single',
+            'parser': lambda r: f'"{r.json()["joke"]}"'
+        },
+        {
+            'url': 'https://futurism.com/api/v1/articles',
+            'parser': lambda r: f"{r.json()['articles'][0]['title']}<br>URL : {r.json()['articles'][0]['url']}"
+        },
+        
+        {
+            'url': 'https://techcrunch.com/wp-json/wp/v2/posts?per_page=1',
+            'parser': lambda r: f"{r.json()[0]['title']['rendered']} <br>URL : {r.json()[0]['link']}"
+
+        }
+
+
+    ]
+
+    # Try each API until we get a successful response
+    for api in random.sample(apis, len(apis)):
+        try:
+            response = requests.get(api['url'], timeout=5)
+            if response.status_code == 200:
+                content = api['parser'](response)
+                # Ensure content isn't too long and clean it up
+                content = unescape(content)[:400].strip()
+                return content
+        except Exception as e:
+            continue
+
+    # Fallback content if all APIs fail
+    return "Just thinking about how amazing technology is! 💭"
+
+def create_seed_posts():
+    """Create random posts for seed users using web content"""
+    try:
+        conn = sqlite3.connect('db/users.db')
+        c = conn.cursor()
+        
+        # Get all users
+        c.execute('SELECT id, username FROM users')
+        users = c.fetchall()
+        
+        if not users:
+            print("No users found in database")
+            return
+        
+        # Create 10 rounds of posts
+        for round_num in range(10):
+            # Select random subset of users for this round
+            posting_users = random.sample(
+                users,
+                random.randint(1, min(3, len(users)))
+            )
+            
+            for user in posting_users:
+                # Get content from web APIs
+                post_content = get_random_post_content()
+                c.execute(
+                    'INSERT INTO posts (user_id, content) VALUES (?, ?)',
+                    (user[0], post_content)
+                )
+                
+                print(f"Created post for {user[1]}: {post_content[:50]}...")
+                
+            conn.commit()
+            sleep(1)  # Slightly longer delay to respect API rate limits
+            
+        print("Finished creating seed posts")
+        
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+    finally:
+        conn.close()
+
+
+
+def generate_password(length=6):
+    """Generate a random password of specified length"""
+    characters = string.ascii_letters + string.digits + "!@#$%^&*"
+    return ''.join(random.choice(characters) for _ in range(length))
+
+def create_seed_users():
+    """Create 10 predefined users if they don't exist"""
+    usernames = [
+        'josh01', 'almondbabe', 'danaflow', 'old_zealand', 
+        'legumeister', 'no-pro', 'zmey', 'freund', 'samara', 'despasito'
+    ]
+    
+    created_users = []
+    
+    try:
+        conn = sqlite3.connect('db/users.db')
+        c = conn.cursor()
+        
+        for username in usernames:
+            # Check if user exists
+            c.execute('SELECT username FROM users WHERE username = ?', (username,))
+            if not c.fetchone():
+                password = generate_password()
+                hashed_password = hash_password(password)
+                
+                c.execute(
+                    'INSERT INTO users (username, password) VALUES (?, ?)',
+                    (username, hashed_password)
+                )
+                
+                created_users.append({
+                    'username': username,
+                    'password': password  # Store unhashed for testing purposes
+                })
+        
+        conn.commit()
+        print(f"Created {len(created_users)} new seed users")
+        return created_users
+        
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+        return []
+    finally:
+        conn.close()
+
+def initialize_with_seed_data():
+    created_users = create_seed_users()
+    if created_users:
+        print("Created the following seed users:")
+        for user in created_users:
+            print(f"Username: {user['username']}, Password: {user['password']}")
+    create_seed_posts()
+
+
+def auto_post_content():
+    """
+    Automatically creates posts every 5 minutes using random seed users.
+    Runs in a separate thread while the server is running.
+    """
+    # Copy the list of usernames to avoid modifying the original
+    usernames = [
+        'josh01', 'almondbabe', 'danaflow', 'old_zealand', 
+        'legumeister', 'no-pro', 'zmey', 'freund', 'samara', 'despasito'
+    ]
+    
+    while True:
+        try:
+            # Connect to database
+            conn = sqlite3.connect('db/users.db')
+            c = conn.cursor()
+            
+            # Get a random username from the list
+            random_username = random.choice(usernames)
+            
+            # Get the user_id for the random username
+            c.execute('SELECT id FROM users WHERE username = ?', (random_username,))
+            user = c.fetchone()
+            
+            if user:
+                # Get random content for the post
+                content = get_random_post_content()
+                
+                # Create the post
+                c.execute(
+                    'INSERT INTO posts (user_id, content) VALUES (?, ?)',
+                    (user[0], content)
+                )
+                
+                # Get the created post details for the socket emission
+                post_id = c.lastrowid
+                c.execute('''
+                    SELECT 
+                        p.id,
+                        p.content,
+                        p.created_at,
+                        u.username,
+                        u.id as author_id,
+                        0 as likes,
+                        0 as liked
+                    FROM posts p
+                    JOIN users u ON p.user_id = u.id
+                    WHERE p.id = ?
+                ''', (post_id,))
+                
+                post = c.fetchone()
+                new_post = {
+                    'id': post[0],
+                    'content': post[1],
+                    'created_at': post[2],
+                    'username': post[3],
+                    'isAuthor': False,
+                    'likes': post[5],
+                    'liked': bool(post[6])
+                }
+                
+                conn.commit()
+                
+                # Emit the new post to all connected clients
+                socketio.emit('new_post', new_post)
+                
+                print(f"Auto-posted as {random_username}: {content[:50]}...")
+                
+        except Exception as e:
+            print(f"Error in auto posting: {e}")
+        finally:
+            if 'conn' in locals():
+                conn.close()
+        
+        # Wait for 5 minutes before the next post
+        time.sleep(120)
+
+def start_auto_posting():
+    """Start the auto-posting thread"""
+    auto_post_thread = Thread(target=auto_post_content, daemon=True)
+    auto_post_thread.start()
+
 if __name__ == '__main__':
     init_db()
+    initialize_with_seed_data()
+    start_auto_posting()
     socketio.run(app, debug=True, host='0.0.0.0', port=80)

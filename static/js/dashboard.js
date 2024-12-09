@@ -12,9 +12,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const newPostBtn = document.getElementById('newPostBtn');
     const modalOverlay = document.getElementById('modalOverlay');
     const postForm = document.getElementById('postForm');
+    const appName = document.querySelector('.app-name');
 
     // Load initial posts
     loadInitialPosts();
+
+    // Add click event for app name
+    appName.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const postsContainer = document.getElementById('postsContainer');
+        postsContainer.innerHTML = ''; // Clear existing posts
+        loadInitialPosts();
+        // Reset active states of filter buttons
+        likedPostsBtn.classList.remove('active');
+        myPostsBtn.classList.remove('active');
+    });
+
 
     // Listen for new posts via WebSocket
     socket.on('new_post', (post) => {
@@ -213,16 +226,19 @@ function createPostElement(post) {
     const postDiv = document.createElement('div');
     postDiv.className = 'post';
     postDiv.dataset.postId = post.id;
-    
+
     const likeButtonClass = post.liked ? 'like-button liked' : 'like-button';
     const likeButtonDisabled = post.isAuthor ? 'disabled' : '';
-    
+
+    // Check for URLs in post content and make them clickable
+    const postContent = convertUrlsToLinks(post.content);
+
     postDiv.innerHTML = `
         <div class="post-header">
             <span class="post-author">${post.username}</span>
             <span class="post-date">${new Date(post.created_at).toLocaleDateString()}</span>
         </div>
-        <div class="post-content">${post.content}</div>
+        <div class="post-content">${postContent}</div>
         <div class="post-actions">
             <button class="${likeButtonClass}" onclick="toggleLike(${post.id})" ${likeButtonDisabled}>
                 ♥ ${post.likes || 0}
@@ -231,6 +247,13 @@ function createPostElement(post) {
     `;
     return postDiv;
 }
+
+// Function to convert URLs in text to clickable links
+function convertUrlsToLinks(text) {
+    const urlPattern = /(https?:\/\/[^\s]+)/g; // Regex to match URLs starting with http:// or https://
+    return text.replace(urlPattern, '<br><a href="$1" target="_blank">$1</a>');
+}
+
 
 async function toggleLike(postId) {
     try {

@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>App Dashboard</title>
+    <title>Postible</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
 </head>
 <body>
     <div class="app-container">
         <header class="top-bar">
-            <div class="app-name">Postible</div>
+            <div class="app-name" role="button" tabindex="0">Postible</div>
             <div class="user-menu">
                 <button id="userMenuBtn" class="user-menu-button">
                     <span id="username">{{ username }}</span>
@@ -26,14 +26,14 @@
             <nav class="side-menu">
                 <button class="menu-button" id="likedPostsBtn">Liked Posts</button>
                 <button class="menu-button" id="myPostsBtn">My Posts</button>
+                <button id="newPostBtn" class="new-post-button">
+                    <span>+</span> New Post
+                </button>
             </nav>
             <main class="content-area">
                 <div id="postsContainer" class="posts-container">
                     <!-- Posts will be dynamically loaded here -->
                 </div>
-                <button id="newPostBtn" class="new-post-button">
-                    <span>+</span> New Post
-                </button>
             </main>
         </div>
     </div>
